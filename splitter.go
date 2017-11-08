@@ -26,7 +26,7 @@ func acceptCoins(coins_ch chan int, done_processing chan bool) {
 	for {
 		reader := bufio.NewReader(os.Stdin)
 
-		fmt.Print("COIN> ")
+		fmt.Print("INSERT MONEY> ")
 		text, _ := reader.ReadString('\n')
 		text = text[:len(text)-1]
 		coin, e := strconv.Atoi(text)
@@ -40,8 +40,9 @@ func acceptCoins(coins_ch chan int, done_processing chan bool) {
 			}
 
 			if text == "a" || text == "av" || text == "available" {
+				fmt.Printf("coin | amount\n")
 				for k, v := range coins {
-					fmt.Printf("coin: %4d; amount: %d\n", k, v)
+					fmt.Printf("%-4d | %-4d\n", k, v)
 				}
 				continue
 			} else {
@@ -115,6 +116,10 @@ func main() {
 
 	coins_ch := make(chan int)
 	done_processing := make(chan bool)
+
+	fmt.Println("commands are: a - to see available coins")
+	fmt.Println("              q - to quit")
+	fmt.Println()
 
 	wg.Add(1)
 	go func() { defer wg.Done(); acceptCoins(coins_ch, done_processing) }()
