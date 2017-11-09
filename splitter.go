@@ -22,6 +22,20 @@ var coins = map[int]int{
 	100: 3,
 }
 
+func printCoinsMap(msg string, coins map[int]int) {
+	fmt.Printf("--------------\n%s\n--------------\n", msg)
+	fmt.Printf("coin | amount\n")
+	var coinType int
+	var coinAmount int
+	for i := range coinTypes {
+		coinType = coinTypes[i]
+		coinAmount = coins[coinType]
+		if coinAmount != 0 {
+			fmt.Printf("%-4d | %-4d\n", coinType, coins[coinType])
+		}
+	}
+}
+
 func acceptCoins(coins_ch chan int, done_processing chan bool) {
 	for {
 		reader := bufio.NewReader(os.Stdin)
@@ -32,7 +46,6 @@ func acceptCoins(coins_ch chan int, done_processing chan bool) {
 		coin, e := strconv.Atoi(text)
 
 		if e != nil {
-
 			if text == "q" || text == "quit" {
 				fmt.Println("QUIT")
 				close(coins_ch)
@@ -40,13 +53,10 @@ func acceptCoins(coins_ch chan int, done_processing chan bool) {
 			}
 
 			if text == "a" || text == "av" || text == "available" {
-				fmt.Printf("coin | amount\n")
-				for k, v := range coins {
-					fmt.Printf("%-4d | %-4d\n", k, v)
-				}
+				printCoinsMap("AVAILABLE COINS", coins)
 				continue
 			} else {
-				fmt.Println("BAD COIN")
+				fmt.Println("BAD INPUT")
 				fmt.Println("ERROR IS: ", e)
 				continue
 			}
@@ -58,7 +68,6 @@ func acceptCoins(coins_ch chan int, done_processing chan bool) {
 }
 
 func processCoins(coins_ch chan int, done_processing chan bool) {
-
 	for coin := range coins_ch {
 		originalCoin := coin
 
@@ -66,25 +75,15 @@ func processCoins(coins_ch chan int, done_processing chan bool) {
 		var coinOutAmount int
 		var left int
 
-		isCoin := false
-		first := true
 		for i := coinTypesN - 1; i >= 0; i-- {
-			// fmt.Println("coin ", coin)
-			// fmt.Println("step", coinTypes[i])
-
-			if first {
-				first = false
-				if coinTypes[i] == coin {
-					isCoin = true
-					continue
-				}
-			}
+			// fmt.Println("-- coin ", coin)
+			// fmt.Println("   step", coinTypes[i])
 
 			coinOutAmount = coin / coinTypes[i]
 			left = coin % coinTypes[i]
 
-			// fmt.Println("coinOutAmount ", coinOutAmount)
-			// fmt.Println("left", left)
+			// fmt.Println("   coinOutAmount ", coinOutAmount)
+			// fmt.Println("   left", left)
 
 			if coinOutAmount != 0 {
 				if coins[coinTypes[i]] >= coinOutAmount {
@@ -96,13 +95,7 @@ func processCoins(coins_ch chan int, done_processing chan bool) {
 		}
 
 		if coin == 0 {
-			for k, v := range coinsOut {
-				fmt.Println(k, ":", v)
-			}
-			// fmt.Println(coinsOut)
-			if isCoin {
-				coins[originalCoin]++
-			}
+			printCoinsMap("YOUR MONEY SPLITTED", coinsOut)
 		} else {
 			fmt.Println("Sorry, cannot split ", originalCoin, ". Not enough coins.")
 		}
