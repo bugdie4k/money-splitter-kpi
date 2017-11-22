@@ -14,10 +14,10 @@ var coinTypes = [coinTypesN]int{1, 2, 5, 10, 25, 50, 100}
 
 var coins = map[int]int{
 	1:   10,
-	2:   4,
-	5:   2,
+	2:   5,
+	5:   12,
 	10:  5,
-	25:  6,
+	25:  10,
 	50:  9,
 	100: 3,
 }
@@ -26,7 +26,7 @@ func printCoinsMap(msg string, coins map[int]int) {
 	fmt.Printf("--------------\n%s\n--------------\n", msg)
 	fmt.Printf("coin | amount\n")
 	var coinType int
-	var coinAmount int
+	var coinAmount int 
 	for i := range coinTypes {
 		coinType = coinTypes[i]
 		coinAmount = coins[coinType]
@@ -36,7 +36,12 @@ func printCoinsMap(msg string, coins map[int]int) {
 	}
 }
 
-func acceptCoins(coins_ch chan int, done_processing chan bool) {
+type Data struct {
+	coin int
+	splitOn int
+}
+
+func acceptCoins(coins_ch chan Data, done_processing chan bool) {
 	for {
 		reader := bufio.NewReader(os.Stdin)
 
@@ -62,18 +67,41 @@ func acceptCoins(coins_ch chan int, done_processing chan bool) {
 			}
 		}
 
-		coins_ch <- coin
+		fmt.Print("SPLIT ON> ")
+		text2, _ := reader.ReadString('\n')
+		text2 = text2[:len(text2)-1]
+		splitOn, e := strconv.Atoi(text2)
+
+		coins_ch <- Data{coin, splitOn}
 		<-done_processing
 	}
 }
 
-func processCoins(coins_ch chan int, done_processing chan bool) {
-	for coin := range coins_ch {
+func processCoins(coins_ch chan Data, done_processing chan bool) {
+	for data := range coins_ch {
+		coin := data.coin
+		splitOn := data.splitOn
+		
 		originalCoin := coin
 
 		var coinsOut = make(map[int]int)
 		var coinOutAmount int
 		var left int
+
+		coinOutAmount = coin / splitOn
+		left = coin % splitOn
+
+		if coinOutAmount != 0 {
+			if coins[splitOn] >= coinOutAmount {
+				coinsOut[splitOn] = coinOutAmount
+				coins[splitOn] -= coinOutAmount
+				coin = left
+			} else {
+				coinsOut[splitOn] = coins[splitOn]
+				coin -= coins[splitOn] * splitOn
+				coins[splitOn] = 0
+			}
+		}
 
 		for i := coinTypesN - 1; i >= 0; i-- {
 			// fmt.Println("-- coin ", coin)
@@ -107,7 +135,7 @@ func processCoins(coins_ch chan int, done_processing chan bool) {
 func main() {
 	var wg sync.WaitGroup
 
-	coins_ch := make(chan int)
+	coins_ch := make(chan Data)
 	done_processing := make(chan bool)
 
 	fmt.Println("commands are: a - to see available coins")
