@@ -36,93 +36,115 @@ func printCoinsMap(msg string, coins map[int]int) {
 	}
 }
 
-type Data struct {
-	coin int
+type InputData struct {
+	money int
 	splitOn int
 }
 
-func acceptCoins(coins_ch chan Data, done_processing chan bool) {
+func promptForInt(promptMsg string, errorHandler func(e error, input string) int) int {
+	fmt.Print(promptMsg)
+	
+	reader := bufio.NewReader(os.Stdin)
+	input, _ := reader.ReadString('\n')
+	input = input[:len(input)-1]
+	retval, e := strconv.Atoi(input)
+
+	if e == nil {
+		return retval
+	} else {
+		return errorHandler(e, input)
+	}
+}
+
+func handleInputError (e error, input string) int {
+	if input == "q" || input == "quit" {
+		fmt.Println("QUIT")
+		return -1
+	} else if input == "a" || input == "av" || input == "available" {
+		printCoinsMap("AVAILABLE COINS", coins)
+		return -2
+	} else {
+		fmt.Println("BAD INPUT")
+		fmt.Println("ERROR IS: ", e)
+		return -2
+	}
+}
+
+func getInput(promptMsg string) int{
 	for {
-		reader := bufio.NewReader(os.Stdin)
+		retval := promptForInt(promptMsg, handleInputError)
+		if retval == -1 {
+			return -1
+		} else if retval == -2 {
+			continue
+		} else {
+			return retval
+		}
+	}
+}
 
-		fmt.Print("INSERT MONEY> ")
-		text, _ := reader.ReadString('\n')
-		text = text[:len(text)-1]
-		coin, e := strconv.Atoi(text)
+func acceptCoins(inputDataChan chan InputData, done_processing chan bool) {
+	for {
+		money := getInput("INSERT MONEY> ")
 
-		if e != nil {
-			if text == "q" || text == "quit" {
-				fmt.Println("QUIT")
-				close(coins_ch)
-				break
-			}
-
-			if text == "a" || text == "av" || text == "available" {
-				printCoinsMap("AVAILABLE COINS", coins)
-				continue
-			} else {
-				fmt.Println("BAD INPUT")
-				fmt.Println("ERROR IS: ", e)
-				continue
-			}
+		if money == -1 {
+			close(inputDataChan)
+			break
+		}
+		
+		splitOn := getInput("SPLIT ON> ")
+		
+		if splitOn == -1 {
+			close(inputDataChan)
+			break
 		}
 
-		fmt.Print("SPLIT ON> ")
-		text2, _ := reader.ReadString('\n')
-		text2 = text2[:len(text2)-1]
-		splitOn, e := strconv.Atoi(text2)
-
-		coins_ch <- Data{coin, splitOn}
+		inputDataChan <- InputData{money, splitOn}
 		<-done_processing
 	}
 }
 
-func processCoins(coins_ch chan Data, done_processing chan bool) {
-	for data := range coins_ch {
-		coin := data.coin
+func processCoins(inputDataChan chan InputData, done_processing chan bool) {
+	for data := range inputDataChan {
+		money := data.money
 		splitOn := data.splitOn
 		
-		originalCoin := coin
+		originalCoin := money
 
 		var coinsOut = make(map[int]int)
-		var coinOutAmount int
+		var coinsOutAmount int
 		var left int
 
-		coinOutAmount = coin / splitOn
-		left = coin % splitOn
+		coinsOutAmount = money / splitOn
+		left = money % splitOn
 
-		if coinOutAmount != 0 {
-			if coins[splitOn] >= coinOutAmount {
-				coinsOut[splitOn] = coinOutAmount
-				coins[splitOn] -= coinOutAmount
-				coin = left
+		if coinsOutAmount != 0 {
+			if coins[splitOn] >= coinsOutAmount {
+				coinsOut[splitOn] = coinsOutAmount
+				coins[splitOn] -= coinsOutAmount
+				money = left
 			} else {
 				coinsOut[splitOn] = coins[splitOn]
-				coin -= coins[splitOn] * splitOn
+				money -= coins[splitOn] * splitOn
 				coins[splitOn] = 0
 			}
 		}
 
 		for i := coinTypesN - 1; i >= 0; i-- {
-			// fmt.Println("-- coin ", coin)
-			// fmt.Println("   step", coinTypes[i])
 
-			coinOutAmount = coin / coinTypes[i]
-			left = coin % coinTypes[i]
+			coinsOutAmount = money / coinTypes[i]
+			left = money % coinTypes[i]
 
-			// fmt.Println("   coinOutAmount ", coinOutAmount)
-			// fmt.Println("   left", left)
-
-			if coinOutAmount != 0 {
-				if coins[coinTypes[i]] >= coinOutAmount {
-					coinsOut[coinTypes[i]] = coinOutAmount
-					coins[coinTypes[i]] -= coinOutAmount
-					coin = left
+			if coinsOutAmount != 0 {
+				if coins[coinTypes[i]] >= coinsOutAmount {
+					coinsOut[coinTypes[i]] = coinsOutAmount
+					coins[coinTypes[i]] -= coinsOutAmount
+					money = left
 				}
 			}
 		}
 
-		if coin == 0 {
+		if money == 0 {
 			printCoinsMap("YOUR MONEY SPLITTED", coinsOut)
 		} else {
 			fmt.Println("Sorry, cannot split ", originalCoin, ". Not enough coins.")
@@ -135,7 +157,7 @@ func processCoins(coins_ch chan Data, done_processing chan bool) {
 func main() {
 	var wg sync.WaitGroup
 
-	coins_ch := make(chan Data)
+	inputDataChan := make(chan InputData)
 	done_processing := make(chan bool)
 
 	fmt.Println("commands are: a - to see available coins")
@@ -143,10 +165,10 @@ func main() {
 	fmt.Println()
 
 	wg.Add(1)
-	go func() { defer wg.Done(); acceptCoins(coins_ch, done_processing) }()
+	go func() { defer wg.Done(); acceptCoins(inputDataChan, done_processing) }()
 
 	wg.Add(1)
-	go func() { defer wg.Done(); processCoins(coins_ch, done_processing) }()
+	go func() { defer wg.Done(); processCoins(inputDataChan, done_processing) }()
 
 	wg.Wait()
 }
