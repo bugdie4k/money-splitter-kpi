@@ -83,29 +83,29 @@ func getInput(promptMsg string) int{
 	}
 }
 
-func acceptCoins(inputDataChan chan InputData, done_processing chan bool) {
+func acceptCoins(inputData chan InputData, dineProcessing chan bool) {
 	for {
 		money := getInput("INSERT MONEY> ")
 
 		if money == -1 {
-			close(inputDataChan)
+			close(inputData)
 			break
 		}
 		
 		splitOn := getInput("SPLIT ON> ")
 		
 		if splitOn == -1 {
-			close(inputDataChan)
+			close(inputData)
 			break
 		}
 
-		inputDataChan <- InputData{money, splitOn}
-		<-done_processing
+		inputData <- InputData{money, splitOn}
+		<-dineProcessing
 	}
 }
 
-func processCoins(inputDataChan chan InputData, done_processing chan bool) {
-	for data := range inputDataChan {
+func processCoins(inputData chan InputData, dineProcessing chan bool) {
+	for data := range inputData {
 		money := data.money
 		splitOn := data.splitOn
 		
@@ -150,25 +150,25 @@ func processCoins(inputDataChan chan InputData, done_processing chan bool) {
 			fmt.Println("Sorry, cannot split ", originalCoin, ". Not enough coins.")
 		}
 
-		done_processing <- true
+		dineProcessing <- true
 	}
 }
 
 func main() {
 	var wg sync.WaitGroup
 
-	inputDataChan := make(chan InputData)
-	done_processing := make(chan bool)
+	inputData := make(chan InputData)
+	dineProcessing := make(chan bool)
 
 	fmt.Println("commands are: a - to see available coins")
 	fmt.Println("              q - to quit")
 	fmt.Println()
 
 	wg.Add(1)
-	go func() { defer wg.Done(); acceptCoins(inputDataChan, done_processing) }()
+	go func() { defer wg.Done(); acceptCoins(inputData, dineProcessing) }()
 
 	wg.Add(1)
-	go func() { defer wg.Done(); processCoins(inputDataChan, done_processing) }()
+	go func() { defer wg.Done(); processCoins(inputData, dineProcessing) }()
 
 	wg.Wait()
 }
